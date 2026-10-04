@@ -1,0 +1,90 @@
+{
+  "config": {
+    "width": 128,
+    "height": 96,
+    "steps": 800,
+    "seeds": 12,
+    "block": 8,
+    "p_left": 0.45,
+    "p_right": 0.05,
+    "seed_start": 2026,
+    "threshold": 0.1,
+    "window": 25
+  },
+  "boundaries": {
+    "periodic": {
+      "mass_error_max": 0,
+      "momentum_balance_error_max": 0,
+      "threshold_time": 750,
+      "tail_absolute_contrast_mean": 0.28771972656250006,
+      "tail_absolute_contrast_sd": 0.005874667920930848,
+      "tail_density_cv_mean": 0.21647470209061,
+      "tail_density_cv_sd": 0.003610840504413931,
+      "tail_rms_speed_mean": 0.1666170984993614,
+      "tail_rms_speed_sd": 0.0020889598721320754,
+      "representative_initial": {
+        "step": 0,
+        "mass": 12327,
+        "px": 49,
+        "py": -8,
+        "rho_left": 1.8035481770833333,
+        "rho_right": 0.20279947916666666,
+        "contrast": 1.6007486979166665,
+        "density_cv": 0.8034975895516747,
+        "rms_speed": 0.20229918214210302,
+        "mass_error": 0,
+        "momentum_error": 0
+      },
+      "representative_final": {
+        "step": 800,
+        "mass": 12327,
+        "px": 49,
+        "py": -8,
+        "rho_left": 0.8006184895833334,
+        "rho_right": 1.2057291666666667,
+        "contrast": -0.40511067708333337,
+        "density_cv": 0.2538384160478506,
+        "rms_speed": 0.12939537064534112,
+        "mass_error": 0,
+        "momentum_error": 0
+      }
+    },
+    "reflecting": {
+      "mass_error_max": 0,
+      "momentum_balance_error_max": 0,
+      "threshold_time": 622,
+      "tail_absolute_contrast_mean": 0.59361328125,
+      "tail_absolute_contrast_sd": 0.010992806249798344,
+      "tail_density_cv_mean": 0.3747041367534747,
+      "tail_density_cv_sd": 0.004592443002868654,
+      "tail_rms_speed_mean": 0.2208092258460611,
+      "tail_rms_speed_sd": 0.0017995862521164503,
+      "representative_initial": {
+        "step": 0,
+        "mass": 12327,
+        "px": 49,
+        "py": -8,
+        "rho_left": 1.8035481770833333,
+        "rho_right": 0.20279947916666666,
+        "contrast": 1.6007486979166665,
+        "density_cv": 0.8034975895516747,
+        "rms_speed": 0.20229918214210302,
+        "mass_error": 0,
+        "momentum_error": 0
+      },
+      "representative_final": {
+        "step": 800,
+        "mass": 12327,
+        "px": 3197,
+        "py": -58,
+        "rho_left": 1.0763346354166667,
+        "rho_right": 0.9300130208333334,
+        "contrast": 0.14632161458333337,
+        "density_cv": 0.19120116680455532,
+        "rms_speed": 0.30372646760713073,
+        "mass_error": 0,
+        "momentum_error": 0
+      }
+    }
+  }
+}
