@@ -286,6 +286,7 @@ if np.any(error):
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     markdown = "\n".join(md).replace("<br/>", "\n")
     markdown = re.sub(r'<link href="([^"]+)"[^>]*>(.*?)</link>', r'[\2](\1)', markdown)
+    markdown = re.sub(r"(?m)^(\|[^\n]*\|)\n\n(?=\|)", r"\1\n", markdown)
     (ROOT / "report/report.md").write_text(markdown, encoding="utf-8")
     temporary.cleanup()
     print(f"Отчёт: {output.resolve()}")
