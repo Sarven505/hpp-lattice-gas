@@ -1,17 +1,28 @@
+"""
+Лабораторная работа: решётчатый газ HPP.
+
+В левой половине поля частиц больше, чем в правой. Смотрим, как газ
+перераспределяется при периодических и при отражающих границах.
+
+Запуск:  python hpp_lab.py            (все параметры - по умолчанию)
+         python hpp_lab.py --gif      (ещё и анимация images/animation.gif)
+         python hpp_lab.py -h         (справка)
+Нужны библиотеки numpy, matplotlib и pillow (pip install -r requirements.txt).
+Графики сохраняются в папку results.
+"""
+
+import argparse
 import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation, PillowWriter
 
-# параметры расчёта 
-W, H = 128, 96        # ширина и высота поля (ширина чётная)
-STEPS = 800           # число шагов по времени
+# ---------- параметры расчёта ----------
 P_LEFT = 0.45         # вероятность занятости канала, левая половина
 P_RIGHT = 0.05        # вероятность занятости канала, правая половина
-RUNS = 12             # сколько случайных начальных состояний берём
-BLOCK = 8             # размер блока для усреднения плотности на картах
-SHOW_TIMES = [0, 50, 150, 800]   # моменты времени для карт плотности
 TAIL = 100            # по скольким последним шагам усредняем итог
+FRAMES = 50           # число кадров в анимации
 
 # Четыре направления движения частицы в узле
 RIGHT, UP, LEFT, DOWN = 0, 1, 2, 3
@@ -23,12 +34,12 @@ NAMES = {"periodic": "периодические границы",
          "reflecting": "отражающие границы"}
 
 
-def initial_state(seed):
+def initial_state(seed, w, h):
     """Случайное начальное заполнение: слева плотнее, чем справа."""
     rng = np.random.default_rng(seed)
-    p = np.full((H, W, 1), P_RIGHT)
-    p[:, :W // 2] = P_LEFT
-    return rng.random((H, W, 4)) < p
+    p = np.full((h, w, 1), P_RIGHT)
+    p[:, :w // 2] = P_LEFT
+    return rng.random((h, w, 4)) < p
 
 
 def collide(n):
@@ -74,19 +85,19 @@ def momentum(n):
     return int(px), int(py)
 
 
-def run(boundary, seed):
+def run(boundary, seed, w, h, steps, show_times):
     """Один расчёт. Возвращает разность плотностей левой и правой половин
-    на каждом шаге и снимки поля в моменты SHOW_TIMES."""
-    n = initial_state(seed)
+    на каждом шаге и снимки поля в моменты show_times."""
+    n = initial_state(seed, w, h)
     total = n.sum()
     p0 = momentum(n)
     diff = []
     snapshots = {}
-    for t in range(STEPS + 1):
-        left = n[:, :W // 2].sum() / (H * W // 2)
-        right = n[:, W // 2:].sum() / (H * W // 2)
+    for t in range(steps + 1):
+        left = n[:, :w // 2].sum() / (h * w // 2)
+        right = n[:, w // 2:].sum() / (h * w // 2)
         diff.append(left - right)
-        if t in SHOW_TIMES:
+        if t in show_times:
             snapshots[t] = n.copy()
         # проверка законов сохранения
         assert n.sum() == total, "число частиц изменилось"
@@ -96,10 +107,11 @@ def run(boundary, seed):
     return np.array(diff), snapshots
 
 
-def block_density(n):
-    """Плотность (частиц на узел), усреднённая по блокам BLOCK x BLOCK."""
+def block_density(n, block):
+    """Плотность (частиц на узел), усреднённая по блокам block x block."""
+    h, w = n.shape[:2]
     rho = n.sum(axis=2)
-    return rho.reshape(H // BLOCK, BLOCK, W // BLOCK, BLOCK).mean(axis=(1, 3))
+    return rho.reshape(h // block, block, w // block, block).mean(axis=(1, 3))
 
 
 def maxima(curve, half_width=30):
@@ -113,29 +125,97 @@ def maxima(curve, half_width=30):
     return result
 
 
-def main():
+def make_gif(maps, frame_times, w, h, block):
+    """Анимация первого запуска: слева периодические границы,
+    справа отражающие."""
+    os.makedirs("images", exist_ok=True)
+    fig, axes = plt.subplots(1, 2, figsize=(7, 3.3), constrained_layout=True)
+    images = []
+    for ax, b in zip(axes, BOUNDARIES):
+        rho = block_density(maps[b][frame_times[0]], block)
+        images.append(ax.imshow(rho, origin="lower", extent=(0, w, 0, h),
+                                vmin=0, vmax=2.4, cmap="viridis"))
+        ax.set_title(NAMES[b])
+        ax.set_xlabel("x")
+    axes[0].set_ylabel("y")
+    fig.colorbar(images[0], ax=axes, shrink=0.8,
+                 label="плотность, частиц/узел")
+    title = fig.suptitle("")
+
+    def update(i):
+        t = frame_times[i]
+        for im, b in zip(images, BOUNDARIES):
+            im.set_data(block_density(maps[b][t], block))
+        title.set_text(f"t = {t}")
+
+    anim = FuncAnimation(fig, update, frames=len(frame_times))
+    anim.save("images/animation.gif", writer=PillowWriter(fps=10), dpi=80)
+    plt.close()
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Решётчатый газ HPP: периодические и отражающие границы.",
+        add_help=False)
+    parser.add_argument("-h", "--help", action="help",
+                        help="показать справку и выйти")
+    parser.add_argument("--width", type=int, default=128,
+                        help="ширина поля, чётная (128)")
+    parser.add_argument("--height", type=int, default=96,
+                        help="высота поля (96)")
+    parser.add_argument("--steps", type=int, default=800,
+                        help="число шагов по времени (800)")
+    parser.add_argument("--runs", type=int, default=12,
+                        help="число случайных начальных состояний, не меньше 2 (12)")
+    parser.add_argument("--block", type=int, default=8,
+                        help="размер блока для карт плотности, делит ширину "
+                             "и высоту (8)")
+    parser.add_argument("--gif", action="store_true",
+                        help="сделать анимацию images/animation.gif")
+    args = parser.parse_args(argv)
+
+    w, h, steps, runs, block = (args.width, args.height, args.steps,
+                                args.runs, args.block)
+    if w < 2 or w % 2 != 0:
+        parser.error("ширина должна быть чётной и не меньше 2")
+    if h < 2:
+        parser.error("высота должна быть не меньше 2")
+    if steps < 1:
+        parser.error("число шагов должно быть не меньше 1")
+    if runs < 2:
+        parser.error("число запусков должно быть не меньше 2")
+    if block < 1 or w % block != 0 or h % block != 0:
+        parser.error("блок должен быть натуральным и делить ширину и высоту")
+
+    show_times = [0, steps // 16, 3 * steps // 16, steps]
+    frame_times = [int(t) for t in np.linspace(0, steps, FRAMES).round()]
+    first_times = sorted(set(show_times + frame_times)) if args.gif \
+        else show_times
+    tail_len = min(TAIL, steps)
+
     os.makedirs("results", exist_ok=True)
     mean = {}         # средняя по запускам разность плотностей
     spread = {}       # разброс (стандартное отклонение) между запусками
-    tail = {}         # средний |разность| на последних TAIL шагах, по запускам
+    tail = {}         # средний |разность| на последних шагах, по запускам
     maps = {}         # снимки поля первого запуска
 
     for b in BOUNDARIES:
         curves = []
-        for k in range(RUNS):
-            diff, snaps = run(b, 2026 + k)
+        for k in range(runs):
+            times = first_times if k == 0 else show_times
+            diff, snaps = run(b, 2026 + k, w, h, steps, times)
             curves.append(diff)
             if k == 0:
                 maps[b] = snaps
         curves = np.array(curves)
         mean[b] = curves.mean(axis=0)
         spread[b] = curves.std(axis=0, ddof=1)
-        tail[b] = np.abs(curves[:, -TAIL:]).mean(axis=1)
-        print(f"{NAMES[b]}: {RUNS} расчётов выполнено, "
+        tail[b] = np.abs(curves[:, -tail_len:]).mean(axis=1)
+        print(f"{NAMES[b]}: {runs} расчётов выполнено, "
               "число частиц сохраняется")
 
     # ---------- результаты в консоль ----------
-    print("\nСредний |разность плотностей| на последних", TAIL, "шагах")
+    print("\nСредний |разность плотностей| на последних", tail_len, "шагах")
     for b in BOUNDARIES:
         print(f"  {NAMES[b]}: {tail[b].mean():.3f} "
               f"± {tail[b].std(ddof=1):.3f} частиц/узел")
@@ -145,7 +225,7 @@ def main():
         print(f"  {NAMES[b]}: " + ", ".join(peaks))
 
     # ---------- график 1: разность плотностей от времени ----------
-    t = np.arange(STEPS + 1)
+    t = np.arange(steps + 1)
     colors = {"periodic": "tab:blue", "reflecting": "tab:red"}
     plt.figure(figsize=(9, 4.5))
     for b in BOUNDARIES:
@@ -155,7 +235,7 @@ def main():
     plt.axhline(0, color="gray", linewidth=0.8)
     plt.xlabel("шаг t")
     plt.ylabel("ρ левой − ρ правой, частиц/узел")
-    plt.title(f"Разность плотностей половин поля (среднее по {RUNS} запускам)")
+    plt.title(f"Разность плотностей половин поля (среднее по {runs} запускам)")
     plt.legend()
     plt.grid(alpha=0.3)
     plt.tight_layout()
@@ -163,13 +243,13 @@ def main():
     plt.close()
 
     # ---------- график 2: карты плотности ----------
-    fig, axes = plt.subplots(2, len(SHOW_TIMES), figsize=(12, 5.5),
+    fig, axes = plt.subplots(2, len(show_times), figsize=(12, 5.5),
                              constrained_layout=True)
     for i, b in enumerate(BOUNDARIES):
-        for j, tt in enumerate(SHOW_TIMES):
+        for j, tt in enumerate(show_times):
             ax = axes[i, j]
-            im = ax.imshow(block_density(maps[b][tt]), origin="lower",
-                           extent=(0, W, 0, H), vmin=0, vmax=2.4,
+            im = ax.imshow(block_density(maps[b][tt], block), origin="lower",
+                           extent=(0, w, 0, h), vmin=0, vmax=2.4,
                            cmap="viridis")
             ax.set_title(f"t = {tt}")
             if j == 0:
@@ -180,6 +260,10 @@ def main():
     plt.savefig("results/density_maps.png", dpi=150)
     plt.close()
     print("\nГрафики сохранены в папку results")
+
+    if args.gif:
+        make_gif(maps, frame_times, w, h, block)
+        print("Анимация сохранена: images/animation.gif")
 
 
 if __name__ == "__main__":
